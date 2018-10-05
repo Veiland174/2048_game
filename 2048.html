@@ -244,7 +244,7 @@
                         })
                     })
                     if (emptyCells.length !== 0) {
-                    	let newCell = (Math.floor(Math.random() * emptyCells.length));
+                    	let newCell = (Math.floor(Math.random() * emptyCells.length-1));
                         let value = Math.floor(Math.random()*10) < 9 ? 2 : 4;
                     	drawing.drawNewCell(emptyCells[newCell][0], emptyCells[newCell][1], value);
                     }
