@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.js"></script>
+    <style>
+        *{
+            -moz-user-select: none;
+            -khtml-user-select: none;
+            -ms-user-select: none;
+            -o-user-select: none;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-user-drag: none;
+            -moz-user-drag: none;
+            -o-user-drag: none;
+            -khtml-user-drag: none;
+            -ms-user-drag: none;
+            user-drag: none;
+        }
+        #playfield{
+            position: absolute;
+            top: 100px;
+            left: 100px;
+            width: 400px;
+            height: 400px;
+            background: #444046;
+        }
+        #scores {
+            position: absolute;
+            top: 0;
+            left: 0px;
+            padding: 10px 10px;
+            font: 14px arial;
+            z-index: 1;
+            font-weight: bold;
+            background: #ffffff88;
+        }
+        #winBox {
+            position: absolute;
+            top: 100px;
+            left: 100px;
+            width: 400px;
+            height: 400px;
+            background: #d4dcbcbb;
+            z-index: 2; 
+            padding-top: 40px;
+            box-sizing: border-box;
+            opacity: 0;
+        }
+        #winBox > div {
+            font-weight: bold;
+            font-size: 30px;
+            color: #000000;
+            text-align: center;
+            width: 210px;
+            background: #d4dcbc;
+            margin: 20px auto 0px;
+            padding: 20px;
+            border: 1px solid #aab195;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .winText {
+            cursor: default !important;
+        }
+        .thing{
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            background: transparent;
+            color: black;
+            text-align: center;
+            font: 30px/100% Arial;
+            box-sizing: border-box;
+        }
+        .thing::after{
+            position: absolute;
+            top: 5%;
+            left: 5%;
+            width: 90%;
+            height: 90%;
+            box-sizing: border-box;
+            border-radius: 5px;
+            background: #ffffff;
+            display: grid;
+            align-items: center;
+        }
+        .thing.t2:after{
+            background: #CCCCFF;
+            content: '2';
+        }
+        .thing.t4:after{
+            background: #9999CC;
+            content: '4';
+        }
+        .thing.t8:after{
+            background: #6699FF;
+            content: '8';
+        }
+        .thing.t16:after{
+            background: #99CCFF;
+            content: '16';
+        }
+        .thing.t32:after{
+            background: #66CCFF;
+            content: '32';
+        }
+        .thing.t64:after{
+            background: #99FFFF;
+            content: '64';
+        }
+        .thing.t128:after{
+            background: #99FFCC;
+            box-shadow: 0px 0px 5px #99FFCC;
+            content: '128';
+        }
+        .thing.t256:after{
+            background: #33CC99;
+            box-shadow: 0px 0px 5px #33CC99;
+            content: '256';
+        }
+        .thing.t512:after{
+            background: #CCFFCC;
+            box-shadow: 0px 0px 5px #CCFFCC;
+            content: '512';
+        }
+        .thing.t1024:after{
+            background: #99CC99;
+            box-shadow: 0px 0px 5px #99CC99;
+            content: '1024';
+        }
+        .thing.t2048:after{
+            background: #CCFF99;
+            box-shadow: 0px 0px 5px #CCFF99;
+            content: '2048';
+        }
+        .thing.t4096:after{
+            background: #CCFF66;
+            box-shadow: 0px 0px 5px #CCFF66;
+            content: '4096';
+        }
+        .thing.t8192:after{
+            background: #CCCC66;
+            box-shadow: 0px 0px 5px #CCCC66;
+            content: '8192';
+        }
+        .thing.t16384:after{
+            background: #CCCC33;
+            box-shadow: 0px 0px 5px #CCCC33;
+            content: '16384';
+        }
+        /* и так далее */
+
+    </style>
+    <script>
+
+        /*
+         Пример игры: http://gabrielecirulli.github.io/2048/ только в нем ходы делаются с помощью клавиатуры
+         Правила игры.
+         В каждом раунде появляется плитка номинала «2» (с вероятностью 90 %) или «4» (с вероятностью 10 %).
+         В начале игры на поле находится 1 клетка.
+         Чтобы сделать ход, игрок должен зажать левую кнопку мыши и переместить курсор в одном из четырех направлений.
+         Все клетку с числами при этом сдивгаются в этом направлении до упора.
+         Если при этом две плитки одного номинала «налетают» одна на другую, то они слипаются в одну,
+         номинал которой равен сумме соединившихся плиток.
+         После каждого хода на свободной секции поля появляется новая плитка номиналом «2» или «4».
+         Если при нажатии кнопки местоположение плиток или их номинал не изменится, то ход не совершается.
+         Тоесть новую плитку в этом случае добавлять не нужно.
+         За каждое соединение игровые очки увеличиваются на номинал получившейся плитки.
+         Игра заканчивается поражением, если после очередного хода невозможно совершить действие.
+         */
+        
+        /* PS От Максима Бородулина (+7-900-065-05-57, max.borodulin@mail.ru)
+        *  Все классы и методы подписаны. В конструкторе класса Game содержатся настройки для игры
+        *  для упрощения проверки, можно установить меньшее значение в параметре winValue, так же можно
+        *  задать размерность игрового поля в fieldSize.
+        *  Немного поменял стили CSS и убрал div.back за ненадобностью.
+        *  Анимации - есть, блокировка ввода - есть.
+        *  Сделал 3 класса Game - логика игры, DrawAndAnimations - отрисовка поля и анимации, 
+        *  Controllers - для логики управления мышью и клавиатурой.
+        *  Разделил логику перемещения ячеек по осям (вертикально, горизонтально), показалось так удобней.
+        *  Если покажете более удобный вариант - с удовольствием посмотрю :)
+        *  Наслаждайтесь игрой! ;P ;)
+        */
+        
+        $(document).ready(function () {
+            var $playfield = $('#playfield');
+            var mousedown = false;
+            
+            /* Тут описана логика игры */            
+            class Game {
+                
+                /* конструктор, настройки игры */
+                constructor() {
+                    this.win = false,               // состояние выйгрыша
+                    this.continue = false,          // состояние продолжения
+                    this.score = 0,                 // текущее количество очков
+                    this.scoreTable = "",           // содержит в себе ссылку на таблицу очков, после её создания
+                    this.defeatFlag = false,        // состояние проигрыша
+                    this.animationTime = 150,       // время анимации передвижения ячеек
+                    this.windowAnimationTime = 500, // скорость появления окон победы и поражения
+                    this.accessClick = true,        // состояние доступности передвижения ячеек мышкой
+                    this.combine = false,           // состояние слияния клеток, используется при расчете передвижений
+                    this.anyCellMoving = false,     // проверка были ли передвижения клеток, любые
+                    this.moveCellDistance = 0,      // расстояние передвижения каждой ячейки
+                    this.winValue = 2048,              // необходимое количество очков для победы
+                    this.field = [],                // текущее игровое поле
+                    this.fieldSize = 4              // размерность игрового поля
+                }
+                
+                /* инициализируем старт игры */
+                startGame() {
+                    game.field = game.generateEmptyField();
+                    drawing.createScoreField();
+                    game.generateNewCell();
+                }
+                
+                /* создаём пустое поле, используется при старте игры и для перемещения ячеек*/
+                generateEmptyField() {
+                    let backField = [];
+                    for (let i = 0; i < game.fieldSize; i++) {
+                        backField.push([]);
+                        for (let j = 0; j < game.fieldSize; j++) {
+                            backField[i].push({
+                                value: 0,
+                                newXpos: null,
+                                newYpos: null,
+                                element: null,
+                                wasCombine: false
+                            });
+                        }
+                    }
+                    return backField;
+                }
+                
+                /* генерируем новую ячейку */
+                generateNewCell() {             
+                    let x = (Math.floor(Math.random() * (game.fieldSize - 0) + 0));
+                    let y = (Math.floor(Math.random() * (game.fieldSize - 0) + 0));
+                    let value = Math.floor(Math.random()*10) < 9 ? 2 : 4;
+                    if (game.field[x][y].value === 0) {
+                        drawing.drawNewCell(x, y, value);
+                    } else {
+                        game.generateNewCell();
+                    }
+                }
+                
+                /* проверка на победу */
+                checkWin() {
+                    game.field.map(function(row) {
+                        row.map(function(cell) {
+                            if (cell.value === game.winValue) {
+                                game.win = true;
+                                drawing.checkContinueGame();
+                            }
+                        })
+                    })
+                }
+                
+                /* проверка на проигрыш, инициализируем ходы в разные стороны (но без передвижения ячеек)
+                *  и проверяем возможность их передвижения */
+                checkDefeat() {                    
+                    if (!game.verticalMove(true, true) && !game.verticalMove(false, true) &&
+                       !game.horizontalMove(true, true) && !game.horizontalMove(false, true)) {
+                        drawing.defeatWindow();
+                    }
+                    game.anyCellMoving = false;
+                }
+                
+                /* задаём направление движения ячеек от контроллера */
+                moveCells(route) {
+                    if (game.accessClick) {
+                        game.accessClick = false;
+                        switch(route) {
+                            case 'left':
+                                game.horizontalMove(false, false);
+                                break;
+                            case 'top':
+                                game.verticalMove(true, false);
+                                break;
+                            case 'right':
+                                game.horizontalMove(true, false);
+                                break;
+                            case 'bottom':
+                                game.verticalMove(false, false);
+                                break;
+                            default:
+                                return;
+                        }                        
+                    }
+                }
+                
+                /* двигаем ячейки по вертикали */
+                verticalMove(toTop, virtualMove) {
+                    let newGameField = game.generateEmptyField();   
+                    
+                    if (toTop) { // эта ветвь используется для передвижения ячеек вверх
+                        for (let i = 0; i < game.field.length; i++) {
+                            for (let j = 0; j < game.field.length; j++) {
+                                let newPos = i;
+                                if (game.field[i][j].value !== 0) {
+                                    for (let q = i-1; q>=0; q--) {
+                                        if (newGameField[q][j].value === 0 ||
+                                            (newGameField[q][j].value === game.field[i][j].value && newGameField[q][j].wasCombine == false)) {
+                                            newPos = q;
+                                            game.moveCellDistance++;
+                                            game.anyCellMoving = true;   
+                                            if (newGameField[q][j].value === game.field[i][j].value) game.combine = true;
+                                            if (newGameField[q][j].value === game.field[i][j].value) break;
+                                        } else {
+                                            break;
+                                        }
+                                    }
+                                    if (game.anyCellMoving && !virtualMove) game.field[i][j].newXpos = "-="+100/game.fieldSize*game.moveCellDistance+"%";
+                                    newGameField[newPos][j] = game.newParametres(game.field[i][j].value, game.combine);
+                                }
+                            }
+                        }
+                    } else if (!toTop) { // эта ветвь используется для передвижения ячеек вниз
+                        for (let i = game.field.length-1; i >= 0 ; i--) {
+                            for (let j = game.field.length-1; j >= 0; j--) {
+                                let newPos = i;
+                                if (game.field[i][j].value !== 0) {
+                                    for (let q = i+1; q < game.field.length; q++) {
+                                        if (newGameField[q][j].value === 0 || 
+                                            (newGameField[q][j].value === game.field[i][j].value && newGameField[q][j].wasCombine == false)) {
+                                            newPos = q;
+                                            game.moveCellDistance++;
+                                            game.anyCellMoving = true;  
+                                            if (newGameField[q][j].value === game.field[i][j].value) game.combine = true;
+                                            if (newGameField[q][j].value === game.field[i][j].value) break;
+                                        } else {
+                                            break;
+                                        }
+                                    }
+                                    if (game.anyCellMoving && !virtualMove) game.field[i][j].newXpos = "+="+100/game.fieldSize*game.moveCellDistance+"%";
+                                    newGameField[newPos][j] = game.newParametres(game.field[i][j].value, game.combine);
+                                }
+                            }
+                        }                        
+                    }
+                    game.anyCellMoving && !virtualMove ? drawing.cellsMoving(newGameField) : controllers.resetMouseControllers();
+                    // следующий if выполняется только при проверке на проигрыш (создаём виртуальное поле и смотрим были ли перемещения ячеек)
+                    if (virtualMove) return game.anyCellMoving;
+                }
+                
+                /* двигаем ячейки по горизонтали */
+                horizontalMove(toRight, virtualMove) {
+                    let newGameField = game.generateEmptyField();  
+                    
+                    if (!toRight) { // эта ветвь используется для передвижения ячеек влево
+                        for (let i = 0; i < game.field.length; i++) {
+                            for (let j = 0; j < game.field.length; j++) {
+                                let newPos = j;
+                                if (game.field[i][j].value !== 0) {
+                                    for (let q = j-1; q>=0; q--) {
+                                        if (newGameField[i][q].value === 0 ||
+                                            (newGameField[i][q].value === game.field[i][j].value && newGameField[i][q].wasCombine === false)) {
+                                            newPos = q;
+                                            game.moveCellDistance++;
+                                            game.anyCellMoving = true;   
+                                            if (newGameField[i][q].value === game.field[i][j].value) game.combine = true;
+                                            if (newGameField[i][q].value === game.field[i][j].value) break;
+                                        } else {
+                                            break;
+                                        }
+                                    }
+                                    if (game.anyCellMoving && !virtualMove) game.field[i][j].newYpos = "-="+100/game.fieldSize*game.moveCellDistance+"%";
+                                    newGameField[i][newPos] = game.newParametres(game.field[i][j].value, game.combine);
+                                }
+                            }
+                        }
+                    } else if (toRight) { // эта ветвь используется для передвижения ячеек вправо
+                        for (let i = game.field.length-1; i >= 0 ; i--) {
+                            for (let j = game.field.length-1; j >= 0; j--) {
+                                let newPos = j;
+                                if (game.field[i][j].value !== 0) {
+                                    for (let q = j+1; q < game.field.length; q++) {                                        
+                                        if (newGameField[i][q].value === 0 ||
+                                            (newGameField[i][q].value === game.field[i][j].value && newGameField[i][q].wasCombine === false)) {
+                                            newPos = q;
+                                            game.moveCellDistance++;
+                                            game.anyCellMoving = true;   
+                                            if (newGameField[i][q].value === game.field[i][j].value) game.combine = true;
+                                            if (newGameField[i][q].value === game.field[i][j].value) break;
+                                        } else {
+                                            break;
+                                        }
+                                    }
+                                    if (game.anyCellMoving && !virtualMove) game.field[i][j].newYpos = "+="+100/game.fieldSize*game.moveCellDistance+"%";
+                                    newGameField[i][newPos] = game.newParametres(game.field[i][j].value, game.combine);
+                                }
+                            }
+                        }                        
+                    }
+                    game.anyCellMoving && !virtualMove ? drawing.cellsMoving(newGameField) : controllers.resetMouseControllers();
+                    // следующий if выполняется только при проверке на проигрыш (создаём виртуальное поле и смотрим были ли перемещения ячеек)
+                    if (virtualMove) return game.anyCellMoving;
+                }
+                
+                /* задание новых параметров для ячейки и игрового поля */ 
+                newParametres(value, combine) {
+                    game.combine = false;
+                    game.moveCellDistance = 0;
+                    game.score = combine ? game.score+value*2 : game.score;
+                    game.scoreTable.html(game.score+' scores');
+                    return {
+                        value: combine ? value*2 : value,
+                        newXpos: null,
+                        newYpos: null,
+                        element: null,
+                        wasCombine: combine ? true : false
+                    }
+                }
+                
+            }
+                
+            /* тут описаны анимации и отрисовки */
+            class DrawAndAnimations {
+                
+                drawNewCell(x, y, value) {
+                    let cellStyles = 'style="top: '+100/game.fieldSize*x+'%; left: '+100/game.fieldSize*y+'%;'+
+                        'width: '+100/game.fieldSize+'%;'+'height: '+100/game.fieldSize+'%;"';
+                    let cellClass = 'class="thing t'+value+'" ';
+                    $playfield.append('<div '+cellClass+cellStyles+'></div>');
+                    game.field[x][y] = {
+                        value: value,
+                        newXpos: null,
+                        newYpos: null,
+                        element: $('#playfield div.thing').last()
+                    };
+                }
+                
+                /* создаём поле для подсчёта очков */
+                createScoreField() {
+                    $playfield.prepend('<div id="scores">'+game.score+' scores</div>');
+                    game.scoreTable = $('#scores');
+                }
+                
+                /* анимация передвижения ячеек */
+                cellsMoving(newGameField, anyCellMoving) {
+                    let changingElements = [];
+                    game.field.map(function(row) {
+                        row.map(function(cell) {
+                            if (cell.newXpos !== null) {
+                                $(cell.element).animate({top: cell.newXpos}, game.animationTime);
+                            } else if (cell.newYpos !== null) {
+                                $(cell.element).animate({left: cell.newYpos}, game.animationTime);                                
+                            }
+                        })
+                    });
+                    setTimeout(function() {
+                        drawing.redrawField(newGameField);
+                    }, game.animationTime);
+                }
+                
+                /* перерисовка игрового поля после анимаций, добавление новой ячейки, сброс параметров хода, проверка на победу */
+                redrawField(newGameField) {
+                    $('.thing').each(function() {
+                        $(this).remove();
+                    })                  
+                    game.field = newGameField;
+                    game.field.map(function(row, x) {
+                        row.map(function(cell, y) {          
+                            if (cell.value !== 0) {
+                                let cellStyles = 'style="top: '+100/game.fieldSize*x+'%; left: '+100/game.fieldSize*y+'%;'+
+                                    'width: '+100/game.fieldSize+'%;'+'height: '+100/game.fieldSize+'%;"';
+                                let cellClass = 'class="thing t'+cell.value+'" ';
+                                $playfield.append('<div '+cellClass+cellStyles+'></div>');
+                                cell.element = $('#playfield div.thing').last();
+                            }
+                        })
+                    })
+                    game.generateNewCell();
+                    game.anyCellMoving = false;
+                    game.accessClick = true;
+                    controllers.resetMouseControllers();
+                    game.checkDefeat();
+                    if (!game.win && !game.continue || game.win && !game.continue) game.checkWin();
+                }
+                
+                /* Окно победы, выбор продолжения/начала игры */
+                checkContinueGame() {
+                    $(document).unbind('keydown');
+                    let winText = '<div class="winText">Вы выиграли!</div>';
+                    let newGame = '<div id="newGame">Играть еще раз</div>';
+                    let continueGame = '<div id="continue">Продолжить</div>';
+                    $('body').prepend('<div id="winBox">'+winText+newGame+continueGame+'</div>');
+                    $('#winBox').animate({opacity: 1}, game.windowAnimationTime);
+                    $('body').on('click', 'div#newGame', function() {
+                        location.reload();
+                    })
+                    $('body').on('click', 'div#continue', function() {
+                        $('#winBox').remove();
+                        game.continue = true;
+                        controllers.keyBoardMoving();
+                    })
+                }
+                
+                /* окно проигрыша */
+                defeatWindow() {
+                    $(document).unbind('keydown');
+                    let winText = '<div class="winText">Вы Проиграли!</div>';
+                    let newGame = '<div id="newGame">Играть еще раз</div>';
+                    $('body').prepend('<div id="winBox">'+winText+newGame+'</div>');
+                    $('#winBox').animate({opacity: 1}, game.windowAnimationTime);
+                    $('body').on('click', 'div#newGame', function() {
+                        location.reload();
+                    })
+                }
+                
+            }
+            
+            /* тут описана логика управления */            
+            class Controllers {
+                
+                /* инициализируем управление мышью */
+                startMouseMove() {
+                    $playfield.mousedown(function(e) {
+                        let startX = e.pageX;
+                        let startY = e.pageY;
+                        controllers.checkMouseMove(startX, startY);
+                    })
+                }
+                
+                /* разрешить управление мышью после блокировки во время хода */
+                resetMouseControllers() {
+                    controllers.startMouseMove();
+                    game.accessClick = true;
+                }
+                
+                /* проверка направления движения мыши, по отжатию клавиши пытаемся двигать ячейки в нужном направлении */  
+                checkMouseMove(startX, startY) {                
+                    $playfield.mouseup(function(e){    
+                        $playfield.unbind();                     
+                        let endX = e.pageX;
+                        let endY = e.pageY;    
+                        if (Math.abs(endY-startY) > Math.abs(endX-startX)) {  
+                            if (startY > endY) {
+                                game.moveCells('top', false);
+                            } else if (startY < endY) {
+                                game.moveCells('bottom', false);
+                            }
+                        } else {
+                            if (startX > endX) {
+                                game.moveCells('left', false);
+                            } else if (startX < endX) {
+                                game.moveCells('right', false);
+                            }
+                        }   
+                        if (Math.abs(endY-startY) == Math.abs(endX-startX)) controllers.startMouseMove();
+                    })
+                    
+                }
+                
+                /* отслеживаем нажатие стрелок и пытаемся двигать ячейки в нужном направлении */
+                keyBoardMoving() {
+                    $(document).keydown(function(e) {                
+                        if (e.which === 37) {
+                            game.moveCells('left', false);
+                        } else if (e.keyCode === 38) {
+                            game.moveCells('top', false);
+                        } else if (e.keyCode === 39) {
+                            game.moveCells('right', false);
+                        } else if (e.keyCode === 40) {
+                            game.moveCells('bottom', false);
+                        }                
+                    })                    
+                }
+                
+                
+            }
+            
+            var game = new Game();
+            var controllers = new Controllers();
+            var drawing = new DrawAndAnimations();
+            
+            game.startGame();
+            controllers.startMouseMove();
+            controllers.keyBoardMoving();
+            
+            
+            
+        });
+    </script>
+</head>
+<body>
+<div id="playfield">
+</div>
+</body>
+</html> 
