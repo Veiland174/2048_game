@@ -236,14 +236,17 @@
                 }
                 
                 /* генерируем новую ячейку */
-                generateNewCell() {             
-                    let x = (Math.floor(Math.random() * (game.fieldSize - 0) + 0));
-                    let y = (Math.floor(Math.random() * (game.fieldSize - 0) + 0));
-                    let value = Math.floor(Math.random()*10) < 9 ? 2 : 4;
-                    if (game.field[x][y].value === 0) {
-                        drawing.drawNewCell(x, y, value);
-                    } else {
-                        game.generateNewCell();
+                generateNewCell() {    
+                    let emptyCells = [];
+                	game.field.map(function(row, x) {
+                        row.map(function(cell, y) {
+                            if (cell.value === 0) emptyCells.push([x, y]);
+                        })
+                    })
+                    if (emptyCells.length !== 0) {
+                    	let newCell = (Math.floor(Math.random() * emptyCells.length));
+                        let value = Math.floor(Math.random()*10) < 9 ? 2 : 4;
+                    	drawing.drawNewCell(emptyCells[newCell][0], emptyCells[newCell][1], value);
                     }
                 }
                 
